@@ -1,4 +1,4 @@
-import type {MainModule} from "../dist/ZstdDecompressor-node.js";
+import type {MainModule} from "../../dist/zstd-wasm-node.js";
 import {
     Nullable,
     nullptr,

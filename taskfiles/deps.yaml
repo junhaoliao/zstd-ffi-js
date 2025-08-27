@@ -1,20 +1,49 @@
 version: "3"
 
 vars:
+  G_EMSDK_CHECKSUM: "{{.G_BUILD_DIR}}/emsdk.md5"
   G_ZSTD_OUTPUT_DIR: "{{.G_DEPS_DIR}}/zstd-src"
 
 tasks:
   default:
     desc: "Download all dependencies."
+    vars:
+      CHECKSUM_FILE: "{{.G_DEPS_CHECKSUM}}"
+      OUTPUT_DIR: "{{.G_DEPS_DIR}}"
+    sources:
+      - "{{.G_EMSDK_CHECKSUM}}"
+      - "{{.ROOT_DIR}}/taskfile.yaml"
+      - "{{.TASKFILE}}"
+    generates: ["{{.CHECKSUM_FILE}}"]
     run: "once"
+    deps:
+      - ":init"
+      - "emsdk"
+      - task: ":utils:checksum:validate"
+        vars:
+          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
+          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
     cmds:
-      - "rm -rf '{{.G_DEPS_CMAKE_SETTINGS_DIR}}'"
-      - "mkdir -p '{{.G_DEPS_CMAKE_SETTINGS_DIR}}'"
+      - task: "emsdk"
       - task: ":utils:cmake:install-deps-and-generate-settings"
         vars:
           CMAKE_SETTINGS_DIR: "{{.G_DEPS_CMAKE_SETTINGS_DIR}}"
           CMAKE_SETTINGS_FILE: "{{.G_DEPS_CMAKE_SETTINGS_FILE}}"
           DEP_TASK: "deps:download-all"
+      # This command must be last
+      - task: ":utils:checksum:compute"
+        vars:
+          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
+          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
+
+  clean:
+    cmds:
+      - task: "clean-emsdk"
+      - "rm -rf '{{.G_DEPS_DIR}}'"
+
+  clean-emsdk:
+    cmds:
+      - "rm -rf '{{.G_EMSDK_DIR}}'"
 
   download-all:
     internal: true
@@ -33,19 +62,59 @@ tasks:
           OUTPUT_DIR: "{{.G_ZSTD_OUTPUT_DIR}}"
           URL: "https://github.com/facebook/zstd/archive/refs/tags/v1.5.7.tar.gz"
 
+  emsdk:
+    vars:
+      CHECKSUM_FILE: "{{.G_EMSDK_CHECKSUM}}"
+      EMSDK_VERSION: "4.0.10"
+      OUTPUT_DIR: "{{.G_EMSDK_DIR}}"
+    sources: ["{{.ROOT_DIR}}/Taskfile.yml"]
+    generates: ["{{.CHECKSUM_FILE}}"]
+    run: "once"
+    deps:
+      - ":init"
+      - task: ":utils:checksum:validate"
+        vars:
+          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
+          EXCLUDE_PATTERNS: &emsdk_checksum_exclude_paths
+            - "upstream/emscripten/__pycache__"
+            - "upstream/emscripten/cache/sanity.txt"
+            - "upstream/emscripten/cache/symbol_lists"
+            - "upstream/emscripten/cache/symbol_lists.lock"
+            - "upstream/emscripten/cache/sysroot/lib/wasm32-emscripten/lto"
+            - "upstream/emscripten/third_party/leb128/__pycache__"
+            - "upstream/emscripten/tools/__pycache__"
+            - "upstream/emscripten/tools/ports/__pycache__"
+            - "upstream/emscripten/tools/ports/contrib/__pycache__"
+          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
+    cmds:
+      - task: "clean-emsdk"
+      - "git clone https://github.com/emscripten-core/emsdk.git '{{.G_EMSDK_DIR}}'"
+      - |-
+        cd "{{.G_EMSDK_DIR}}"
+        ./emsdk install {{.EMSDK_VERSION}}
+        ./emsdk activate {{.EMSDK_VERSION}}
+      - |-
+        cd "{{.G_EMSDK_DIR}}/upstream/emscripten"
+        PATH=$(echo {{.G_EMSDK_DIR}}/node/*/bin):$PATH npm install
+      # This command must be last
+      - task: ":utils:checksum:compute"
+        vars:
+          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
+          EXCLUDE_PATTERNS: *emsdk_checksum_exclude_paths
+          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
+
   generate-zstd-single-file-lib:
     internal: true
     vars:
       LIB_NAME: "zstd-single-file"
-      ZSTD_SINGLE_FILE_CMAKE_FILE: "{{.G_DEPS_CMAKE_SETTINGS_DIR}}/{{.LIB_NAME}}.cmake"
       ZSTD_SINGLE_FILE_OUTPUT_DIR: "{{.G_DEPS_DIR}}/zstd-single-file"
       ZSTD_SINGLE_FILE_OUTPUT_FILE: "{{.ZSTD_SINGLE_FILE_OUTPUT_DIR}}/zstddeclib.c"
+      ZSTD_WASM_CMAKE_FILE: "{{.G_DEPS_CMAKE_SETTINGS_DIR}}/{{.LIB_NAME}}.cmake"
     sources:
-      - "{{.G_DEPS_DIR}}/zstd-src/lib/**/*.c"
-      - "{{.G_DEPS_DIR}}/zstd-src/lib/**/*.h"
+      - "{{.G_DEPS_DIR}}/zstd-src.md5"
     generates:
-      - "{{.ZSTD_SINGLE_FILE_CMAKE_FILE}}"
       - "{{.ZSTD_SINGLE_FILE_OUTPUT_FILE}}"
+      - "{{.ZSTD_WASM_CMAKE_FILE}}"
     deps:
       - "download-zstd"
     cmds:
@@ -58,5 +127,5 @@ tasks:
         zstddeclib-in.c
       - >-
         echo "set(
-        ZSTD_DECOMPRESSOR_ZSTD_SINGLE_FILE_SOURCE_DIRECTORY \"{{.ZSTD_SINGLE_FILE_OUTPUT_DIR}}\"
-        )" > "{{.ZSTD_SINGLE_FILE_CMAKE_FILE}}"
+        ZSTD_WASM_ZSTD_SINGLE_FILE_SOURCE_DIRECTORY \"{{.ZSTD_SINGLE_FILE_OUTPUT_DIR}}\"
+        )" > "{{.ZSTD_WASM_CMAKE_FILE}}"

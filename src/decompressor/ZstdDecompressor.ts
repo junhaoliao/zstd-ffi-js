@@ -1,10 +1,10 @@
-import type {MainModule} from "../dist/ZstdDecompressor-node.js";
+import type {MainModule} from "../../dist/zstd-wasm-node.js";
 import {nullptr} from "./typings.js";
 import ZstdInBufferView from "./ZstdInBufferView.js";
 import ZstdOutBufferView from "./ZstdOutBufferView.js";
 
 
-// Zstandard return values
+// Zstandard API return values
 const ZSTD_CONTENTSIZE_UNKNOWN = -1n;
 const ZSTD_CONTENTSIZE_ERROR = -2n;
 
@@ -46,11 +46,11 @@ class ZstdDecompressor {
             let module: MainModule;
             if ("undefined" !== typeof process) {
                 // Node.js
-                const wasmModule = await import("../dist/ZstdDecompressor-node.js");
+                const wasmModule = await import("../../dist/zstd-wasm-node.js");
                 module = await wasmModule.default();
             } else {
                 // Browser
-                const wasmModule = await import("../dist/ZstdDecompressor-worker.js");
+                const wasmModule = await import("../../dist/zstd-wasm-worker.js");
                 module = await wasmModule.default();
             }
 

@@ -6,20 +6,20 @@ includes:
 
 vars:
   G_BUILD_DIR: "{{.ROOT_DIR}}/build"
-  G_ZSTD_DECOMPRESSOR_BUILD_DIR: "{{.G_BUILD_DIR}}/zstd-decompressor"
   G_DEPS_DIR: "{{.G_BUILD_DIR}}/deps"
   G_DIST_DIR: "{{.ROOT_DIR}}/dist"
   G_EMSDK_DIR: "{{.G_BUILD_DIR}}/emsdk"
+  G_ZSTD_WASM_BUILD_DIR: "{{.G_BUILD_DIR}}/zstd-wasm"
 
-  G_ZSTD_DECOMPRESSOR_ENV_NAMES: ["node", "worker"]
-  G_ZSTD_DECOMPRESSOR_TARGET_PREFIX: "ZstdDecompressor-"
+  G_ZSTD_WASM_ENV_NAMES: ["node", "worker"]
+  G_ZSTD_WASM_TARGET_PREFIX: "zstd-wasm-"
 
   # These should be kept in-sync with their usage in CMakeLists.txt
   G_DEPS_CMAKE_SETTINGS_DIR: "{{.G_DEPS_DIR}}/cmake-settings"
   G_DEPS_CMAKE_SETTINGS_FILE: "{{.G_DEPS_CMAKE_SETTINGS_DIR}}/settings.cmake"
 
-  G_ZSTD_DECOMPRESSOR_CHECKSUM: "{{.G_BUILD_DIR}}/zstd-decompressor.md5"
-  G_EMSDK_CHECKSUM: "{{.G_BUILD_DIR}}/emsdk.md5"
+  G_DEPS_CHECKSUM: "{{.G_BUILD_DIR}}/deps.md5"
+  G_ZSTD_WASM_CHECKSUM: "{{.G_BUILD_DIR}}/zstd-wasm.md5"
 
 tasks:
   default:
@@ -27,96 +27,20 @@ tasks:
 
   clean:
     cmds:
-      - task: "clean-emsdk"
-      - task: "clean-zstd-decompressor"
+      - task: "clean-zstd-wasm"
+      - task: "deps:clean"
       - "rm -rf '{{.G_BUILD_DIR}}'"
 
-  clean-emsdk:
+  clean-zstd-wasm:
     cmds:
-      - "rm -rf '{{.G_EMSDK_DIR}}'"
-
-  clean-zstd-decompressor:
-    cmds:
-      - "rm -rf '{{.G_ZSTD_DECOMPRESSOR_BUILD_DIR}}'"
-
-  zstd-decompressor:
-    vars:
-      CHECKSUM_FILE: "{{.G_ZSTD_DECOMPRESSOR_CHECKSUM}}"
-      OUTPUT_DIR: "{{.G_ZSTD_DECOMPRESSOR_BUILD_DIR}}"
-    sources:
-      - "{{.G_ZSTD_DECOMPRESSOR_BUILD_DIR}}/CMakeCache.txt"
-      - "{{.G_EMSDK_CHECKSUM}}"
-      - "{{.TASKFILE}}"
-      - "CMakeLists.txt"
-      - "src/**/*"
-    generates: ["{{.CHECKSUM_FILE}}"]
-    deps:
-      - "deps"
-      - "emsdk"
-      - task: "utils:checksum:validate"
-        vars:
-          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
-          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
-    cmds:
-      - task: "config-cmake-project"
-      - >-
-        cmake
-        --build '{{.OUTPUT_DIR}}'
-        --parallel
-        --target {{range .G_ZSTD_DECOMPRESSOR_ENV_NAMES}}"{{$.G_ZSTD_DECOMPRESSOR_TARGET_PREFIX}}{{.}}" {{end}}
-      # This command must be last
-      - task: "utils:checksum:compute"
-        vars:
-          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
-          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
-
-  emsdk:
-    vars:
-      CHECKSUM_FILE: "{{.G_EMSDK_CHECKSUM}}"
-      EMSDK_VERSION: "4.0.10"
-      OUTPUT_DIR: "{{.G_EMSDK_DIR}}"
-    sources: ["{{.TASKFILE}}"]
-    generates: ["{{.CHECKSUM_FILE}}"]
-    run: "once"
-    deps:
-      - "init"
-      - task: "utils:checksum:validate"
-        vars:
-          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
-          EXCLUDE_PATTERNS: &emsdk_checksum_exclude_paths
-            - "upstream/emscripten/__pycache__"
-            - "upstream/emscripten/cache/sanity.txt"
-            - "upstream/emscripten/cache/symbol_lists"
-            - "upstream/emscripten/cache/symbol_lists.lock"
-            - "upstream/emscripten/cache/sysroot/lib/wasm32-emscripten/lto"
-            - "upstream/emscripten/third_party/leb128/__pycache__"
-            - "upstream/emscripten/tools/__pycache__"
-            - "upstream/emscripten/tools/ports/__pycache__"
-            - "upstream/emscripten/tools/ports/contrib/__pycache__"
-          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
-    cmds:
-      - task: "clean-emsdk"
-      - "git clone https://github.com/emscripten-core/emsdk.git '{{.G_EMSDK_DIR}}'"
-      - |-
-        cd "{{.G_EMSDK_DIR}}"
-        ./emsdk install {{.EMSDK_VERSION}}
-        ./emsdk activate {{.EMSDK_VERSION}}
-      - |-
-        cd "{{.G_EMSDK_DIR}}/upstream/emscripten"
-        PATH=$(echo {{.G_EMSDK_DIR}}/node/*/bin):$PATH npm install
-      # This command must be last
-      - task: "utils:checksum:compute"
-        vars:
-          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
-          EXCLUDE_PATTERNS: *emsdk_checksum_exclude_paths
-          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
+      - "rm -rf '{{.G_ZSTD_WASM_BUILD_DIR}}'"
 
   package:
     vars:
       CHECKSUM_FILE: "{{.G_BUILD_DIR}}/{{.TASK}}.md5"
       OUTPUT_DIR: "{{.G_DIST_DIR}}"
     sources:
-      - "{{.G_ZSTD_DECOMPRESSOR_CHECKSUM}}"
+      - "{{.G_ZSTD_WASM_CHECKSUM}}"
       - "{{.TASKFILE}}"
       - "src/**/*"
       - "package.json"
@@ -124,18 +48,19 @@ tasks:
       - "tsconfig.json"
     generates: ["{{.CHECKSUM_FILE}}"]
     deps:
-      - "zstd-decompressor"
+      - "zstd-wasm"
       - task: "utils:checksum:validate"
         vars:
           CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
           INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
     cmds:
       - "rm -rf {{.OUTPUT_DIR}}"
+      - "mkdir -p {{.OUTPUT_DIR}}"
       - for:
-          var: "G_ZSTD_DECOMPRESSOR_ENV_NAMES"
+          var: "G_ZSTD_WASM_ENV_NAMES"
         cmd: >-
           rsync -a
-          "{{.G_ZSTD_DECOMPRESSOR_BUILD_DIR}}/{{.G_ZSTD_DECOMPRESSOR_TARGET_PREFIX}}{{.ITEM}}."{d.ts,js,wasm}
+          {{.G_ZSTD_WASM_BUILD_DIR}}/{{.G_ZSTD_WASM_TARGET_PREFIX}}{{.ITEM}}.{d.ts,js,wasm}
           "{{.OUTPUT_DIR}}/"
       - "npm run build:ts"
       - "npm pack"
@@ -145,25 +70,51 @@ tasks:
           CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
           INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
 
+  zstd-wasm:
+    vars:
+      CHECKSUM_FILE: "{{.G_ZSTD_WASM_CHECKSUM}}"
+      OUTPUT_DIR: "{{.G_ZSTD_WASM_BUILD_DIR}}"
+    sources:
+      - "{{.G_ZSTD_WASM_BUILD_DIR}}/CMakeCache.txt"
+      - "{{.TASKFILE}}"
+      - "CMakeLists.txt"
+      - "src/**/*"
+    generates: ["{{.CHECKSUM_FILE}}"]
+    deps:
+      - "config-cmake-project"
+      - task: "utils:checksum:validate"
+        vars:
+          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
+          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
+    cmds:
+      - >-
+        cmake
+        --build '{{.OUTPUT_DIR}}'
+        --parallel
+        --target {{range .G_ZSTD_WASM_ENV_NAMES}}"{{$.G_ZSTD_WASM_TARGET_PREFIX}}{{.}}" {{end}}
+      # This command must be last
+      - task: "utils:checksum:compute"
+        vars:
+          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
+          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
+
   config-cmake-project:
     internal: true
     sources:
-      - "{{.G_EMSDK_CHECKSUM}}"
+      - "{{.G_DEPS_CHECKSUM}}"
       - "{{.TASKFILE}}"
       - "CMakeLists.txt"
     generates:
-      - "{{.G_ZSTD_DECOMPRESSOR_BUILD_DIR}}/CMakeCache.txt"
-      - "{{.G_ZSTD_DECOMPRESSOR_BUILD_DIR}}/compile_commands.json"
+      - "{{.G_ZSTD_WASM_BUILD_DIR}}/CMakeCache.txt"
     deps:
       - "deps"
-      - "emsdk"
     cmd: |-
       cmake \
-      -DZSTD_DECOMPRESSOR_SUPPORTED_ENVIRONMENTS="{{.G_ZSTD_DECOMPRESSOR_ENV_NAMES | join ";"}}" \
+      -DZSTD_WASM_SUPPORTED_ENVIRONMENTS="{{.G_ZSTD_WASM_ENV_NAMES | join ";"}}" \
       -DCMAKE_TOOLCHAIN_FILE="{{.G_EMSDK_DIR}}/upstream/emscripten/cmake/Modules/Platform/\
       Emscripten.cmake" \
       -S "{{.ROOT_DIR}}" \
-      -B "{{.G_ZSTD_DECOMPRESSOR_BUILD_DIR}}"
+      -B "{{.G_ZSTD_WASM_BUILD_DIR}}"
 
   init:
     internal: true

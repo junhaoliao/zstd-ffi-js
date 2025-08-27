@@ -1,12 +1,16 @@
 {
-  "name": "zstd-decompressor",
+  "name": "@yscope/zstd-ffi-js",
   "version": "0.0.1",
-  "description": "A Zstandard decompressor library for JavaScript/TypeScript",
+  "description": "A Zstandard library for JavaScript/TypeScript with decompression support and future compression support",
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/ZstdDecompressor.js",
-      "types": "./dist/ZstdDecompressor.d.ts"
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./decompressor": {
+      "import": "./dist/decompressor/index.js",
+      "types": "./dist/decompressor/index.d.ts"
     }
   },
   "files": [
@@ -14,8 +18,9 @@
   ],
   "scripts": {
     "build": "task package",
-    "build:zstd": "task zstd-decompressor",
+    "build:zstd": "task zstd-ffi-js",
     "build:ts": "tsc",
+    "build:all": "task zstd-ffi-js && tsc",
     "clean": "task clean",
     "lint": "eslint .",
     "lint:fix": "npm run lint -- --fix"
@@ -23,6 +28,7 @@
   "keywords": [
     "zstd",
     "zstandard",
+    "compression",
     "decompression",
     "wasm",
     "webassembly"
