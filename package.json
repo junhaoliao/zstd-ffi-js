@@ -1,0 +1,38 @@
+{
+  "name": "zstd-decompressor",
+  "version": "0.0.1",
+  "description": "A Zstandard decompressor library for JavaScript/TypeScript",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/ZstdDecompressor.js",
+      "types": "./dist/ZstdDecompressor.d.ts"
+    }
+  },
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "task package",
+    "build:zstd": "task zstd-decompressor",
+    "build:ts": "tsc",
+    "clean": "task clean",
+    "lint": "eslint .",
+    "lint:fix": "npm run lint -- --fix"
+  },
+  "keywords": [
+    "zstd",
+    "zstandard",
+    "decompression",
+    "wasm",
+    "webassembly"
+  ],
+  "author": "YScope Inc. <dev@yscope.com>",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "eslint-config-yscope": "1.1.1",
+    "typescript": "~5.7.3",
+    "typescript-eslint": "^8.19.0"
+  }
+}
