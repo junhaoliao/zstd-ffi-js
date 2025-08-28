@@ -21,7 +21,7 @@ jobs:
       - name: "Install task"
         run: "npm install --global @go-task/cli@3.44.0"
 
-      - run: "task package"
+      - run: "task"
 
       - name: "Upload build artifacts"
         uses: "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
