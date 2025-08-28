@@ -5,12 +5,13 @@ Currently, it supports decompression with compression support planned for a futu
 
 ## Features
 
-- Fast Zstandard compression/decompression using the native Zstandard C library compiled to WebAssembly.
+- Fast Zstandard decompression using the native Zstandard C library compiled to WebAssembly
 - Works in both browser and Node.js environments
 - Supports both regular and streaming ZSTD formats, with automatic handling for decompressing 
-  streaming format as a fallback when content size is not embedded in the compressed data.
+  streaming format as a fallback when content size is not embedded in the compressed data
 - TypeScript support with full type definitions
 - Modular design allowing for future expansion to include compression support
+- Comprehensive error handling with partial data recovery capabilities
 
 ## Installation
 
@@ -47,7 +48,7 @@ const compressedChunks = [
 ];
 
 const decompressedChunks = [];
-for (const chunk of decompressor.decompressStreaming(compressedChunks)) {
+for (const chunk of decompressor.decompressStream(compressedChunks)) {
   decompressedChunks.push(chunk);
 }
 
@@ -57,6 +58,32 @@ let offset = 0;
 for (const chunk of decompressedChunks) {
   fullData.set(chunk, offset);
   offset += chunk.length;
+}
+```
+
+### Error Handling with Partial Data Recovery
+
+When decompression fails, you can recover any successfully processed data:
+
+```javascript
+import { 
+  ZstdDecompressor, 
+  ZstdDecompressionErrorWithData 
+} from '@yscope/zstd-ffi-js';
+
+const decompressor = await ZstdDecompressor.create();
+const incompleteCompressedData = new Uint8Array([/* incomplete data */]);
+
+try {
+  const result = decompressor.decompress(incompleteCompressedData);
+  console.log('Decompression successful:', result);
+} catch (error) {
+  if (error instanceof ZstdDecompressionErrorWithData) {
+    console.log('Partial data recovered:', error.data);
+    console.log('Error code:', error.code);
+  } else {
+    console.error('Decompression failed:', error);
+  }
 }
 ```
 
@@ -113,7 +140,7 @@ This will use Task to:
 
 ## Future Compression Support
 
-This library currently only supports decompression. Compression support is planned for a future release. The library has been structured to easily accommodate compression functionality when it becomes available.
+This library currently only supports decompression. Compression support is planned for a future release.
 
 ## API
 
@@ -121,23 +148,54 @@ This library currently only supports decompression. Compression support is plann
 
 #### `static create(): Promise<ZstdDecompressor>`
 
-Initialize the ZSTD decompressor by loading the WASM module. Returns a promise that resolves when the module is loaded. Automatically loads the appropriate WebAssembly module for either Node.js or browser environments.
+Initialize the ZSTD decompressor by loading the WASM module. Returns a promise that resolves when the module is loaded.
+Automatically loads the appropriate WebAssembly module for either Node.js or browser environments.
 
 #### `decompress(dataArray: Uint8Array, uncompressedSize?: number): Uint8Array`
 
-Decompress a compressed ZSTD buffer. If `uncompressedSize` is not provided, it will be determined automatically. If the content size is not embedded in the compressed data (including streaming format), it will automatically fall back to streaming decompression internally.
+Decompress a compressed ZSTD buffer. If `uncompressedSize` is not provided, it will be determined automatically. If the
+content size is not embedded in the compressed data (including streaming format), it will automatically fall back to
+streaming decompression internally.
 
-#### `decompressStreaming(dataArrayIter: Iterable<Uint8Array>): Generator<Uint8Array>`
+In case of decompression failure with partial data processed, a `ZstdDecompressionErrorWithData` will be thrown which
+contains the partially decompressed data.
 
-Streaming decompression of ZSTD data. Takes an iterable of compressed data chunks and returns a generator that yields decompressed data chunks.
+#### `decompressStream(dataArrayIter: Iterable<Uint8Array>): Generator<Uint8Array>`
+
+Streaming decompression of ZSTD data. Takes an iterable of compressed data chunks and returns a generator that yields
+decompressed data chunks.
+
+Throws `ZstdDecompressionError` or `ZstdDecompressionErrorWithData` on failure.
+
+## Error Handling
+
+### `ZstdDecompressionError`
+
+Base error class for decompression failures.
+
+### `ZstdDecompressionErrorWithData`
+
+Extended error class that includes partially decompressed data when available. This allows recovery of any successfully
+processed data even when decompression fails.
+
+Properties:
+- `message`: Error message
+- `code`: Error code from `ZSTD_FFI_JS_ERROR`
+- `data`: Partially decompressed data (Uint8Array)
+- `cause`: Original error that caused the failure (if available)
 
 ## Future Compression API
 
 Compression functionality will be added in a future release with APIs such as:
 
 - `ZstdCompressor`: A class for compressing data
-- `compress(dataArray: Uint8Array, compressionLevel?: number): Uint8Array`: Compress data with an optional compression level
-- `compressStreaming(dataArrayIter: Iterable<Uint8Array>, compressionLevel?: number): Generator<Uint8Array>`: Streaming compression of data
+- `compress(dataArray: Uint8Array, compressionLevel?: number): Uint8Array`: Compress data with an optional compression
+  level
+- `compressStream(dataArrayIter: Iterable<Uint8Array>, compressionLevel?: number): Generator<Uint8Array>`: Streaming
+  compression of data
+
+This library currently only supports decompression. Compression support is planned for a future release. The library has
+been structured to easily accommodate compression functionality when it becomes available.
 
 ## Supported Environments
 
