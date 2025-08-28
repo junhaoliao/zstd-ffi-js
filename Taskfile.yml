@@ -63,7 +63,8 @@ tasks:
           "{{.G_ZSTD_WASM_BUILD_DIR}}/{{.G_ZSTD_WASM_TARGET_PREFIX}}{{.ITEM}}".{d.ts,js,wasm}
           "{{.OUTPUT_DIR}}/"
       - "npm run build:ts"
-      - "npm pack"
+      # Print the package contents
+      - "npm pack --dry-run"
       # This command must be last
       - task: "utils:checksum:compute"
         vars:
