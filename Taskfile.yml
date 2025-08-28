@@ -2,6 +2,7 @@ version: "3"
 
 includes:
   deps: "taskfiles/deps.yaml"
+  node: "taskfiles/node.yaml"
   utils: "tools/yscope-dev-utils/exports/taskfiles/utils/utils.yaml"
 
 vars:
@@ -19,6 +20,7 @@ vars:
   G_DEPS_CMAKE_SETTINGS_FILE: "{{.G_DEPS_CMAKE_SETTINGS_DIR}}/settings.cmake"
 
   G_DEPS_CHECKSUM: "{{.G_BUILD_DIR}}/deps.md5"
+  G_NODE_MODULES_CHECKSUM: "{{.G_BUILD_DIR}}/node_modules.md5"
   G_ZSTD_WASM_CHECKSUM: "{{.G_BUILD_DIR}}/zstd-wasm.md5"
 
 tasks:
@@ -29,6 +31,7 @@ tasks:
     cmds:
       - task: "clean-zstd-wasm"
       - task: "deps:clean"
+      - task: "node:clean-node-modules"
       - "rm -rf '{{.G_BUILD_DIR}}'"
 
   clean-zstd-wasm:
@@ -48,6 +51,7 @@ tasks:
       - "tsconfig.json"
     generates: ["{{.CHECKSUM_FILE}}"]
     deps:
+      - "node:node-modules"
       - "zstd-wasm"
       - task: "utils:checksum:validate"
         vars:
