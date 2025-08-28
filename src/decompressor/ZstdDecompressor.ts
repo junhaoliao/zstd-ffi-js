@@ -143,7 +143,7 @@ class ZstdDecompressor {
         }
 
         try {
-            let readSizeHint = 0;
+            let numReadSizeHint = 0;
             for (const inDataArray of dataArrayIter) {
                 let inDataPos = 0;
                 while (inDataPos < inDataArray.byteLength) {
@@ -154,7 +154,7 @@ class ZstdDecompressor {
                     const inDataSliceEnd = inDataPos + toCopy;
                     const inDataSlice = inDataArray.subarray(inDataPos, inDataSliceEnd);
                     inDataPos = inDataSliceEnd;
-                    readSizeHint = yield* this.#processStreamingChunk(
+                    numReadSizeHint = yield* this.#processStreamingChunk(
                         dCtxPtr,
                         inDataSlice,
                         inBufferView,
@@ -162,7 +162,7 @@ class ZstdDecompressor {
                     );
                 }
             }
-            if (0 !== readSizeHint) {
+            if (0 !== numReadSizeHint) {
                 throw new Error("Premature end: more data is expected");
             }
         } finally {
