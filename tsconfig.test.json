@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "lib": [
-      "DOM",
-      "ES2020",
-      "ES2022.Error"
-    ],
+    "lib": ["ES2020", "DOM"],
     "module": "ESNext",
     "rootDir": "./src",
     "esModuleInterop": true,
@@ -39,6 +35,6 @@
     "useUnknownInCatchVariables": true
   },
   "include": [
-    "src/**/*"
+    "tests/**/*"
   ]
 }

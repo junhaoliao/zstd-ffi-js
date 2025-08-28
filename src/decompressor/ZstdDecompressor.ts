@@ -1,4 +1,10 @@
 import type {MainModule} from "../../dist/zstd-wasm-node.js";
+import {concatChunks} from "../utils";
+import {
+    ZSTD_FFI_JS_ERROR,
+    ZstdDecompressionError,
+} from "./error";
+import ZstdDecompressionErrorWithData from "./error/ZstdDecompressionErrorWithData";
 import {nullptr} from "./typings.js";
 import ZstdInBufferView from "./ZstdInBufferView.js";
 import ZstdOutBufferView from "./ZstdOutBufferView.js";
@@ -42,7 +48,7 @@ class ZstdDecompressor {
         }
 
         try {
-            // Load the appropriate WASM module based on environment.
+            // Load the appropriate WASM module based on the environment.
             let module: MainModule;
             if ("undefined" !== typeof process) {
                 // Node.js
@@ -120,7 +126,8 @@ class ZstdDecompressor {
      * Streaming decompression of ZSTD data.
      *
      * @param dataArrayIter An iterable of compressed data chunks.
-     * @throws {Error} If failed to allocate memory, or decompression fails.
+     * @throws {Error} If failed to allocate memory.
+     * @throws {ZstdDecompressionError} if reading input fails.
      * @yields Decompressed data chunks as Uint8Array.
      */
     *decompressStreaming (dataArrayIter: Iterable<Uint8Array>): Generator<Uint8Array> {
@@ -163,7 +170,10 @@ class ZstdDecompressor {
                 }
             }
             if (0 !== numReadSizeHint) {
-                throw new Error("Premature end: more data is expected");
+                throw new ZstdDecompressionError(
+                    "Premature end",
+                    {code: ZSTD_FFI_JS_ERROR.READ_ERROR}
+                );
             }
         } finally {
             outBufferView.destroy();
@@ -180,7 +190,7 @@ class ZstdDecompressor {
      * @param inBufferView
      * @param outBufferView
      * @return Recommended read size of the next input chunk. When non-zero, more data is expected.
-     * @throws {Error} If processing fails.
+     * @throws {ZstdDecompressionError} if decoding fails.
      * @yields Decompressed data chunks as Uint8Array.
      */
     *#processStreamingChunk (
@@ -206,8 +216,9 @@ class ZstdDecompressor {
 
             if (this.#module._ZSTD_isError(ret)) {
                 const errorNamePtr = this.#module._ZSTD_getErrorName(ret);
-                throw new Error(`ZSTD streaming decompression error: ${ret} - ${
-                    this.#module.UTF8ToString(errorNamePtr)}`);
+                throw new ZstdDecompressionError(this.#module.UTF8ToString(errorNamePtr), {
+                    code: ZSTD_FFI_JS_ERROR.DECODING_ERROR,
+                });
             }
         }
 
@@ -219,24 +230,35 @@ class ZstdDecompressor {
      *
      * @param dataArray The compressed data as a Uint8Array.
      * @return The decompressed data as a Uint8Array.
-     * @throws {Error} If decompression fails.
+     * @throws {ZstdDecompressionError} If streaming decompression fails.
      */
     #decompressStreamingFallback (dataArray: Uint8Array): Uint8Array {
-        const parts = Array.from(this.decompressStreaming([dataArray]));
-        if (1 === parts.length) {
-            return parts[0] as Uint8Array;
+        const parts: Uint8Array[] = [];
+        try {
+            for (const chunk of this.decompressStreaming([dataArray])) {
+                parts.push(chunk);
+            }
+        } catch (e: unknown) {
+            const message = e instanceof ZstdDecompressionError ?
+                e.message :
+                "Unknown error";
+            const code = e instanceof ZstdDecompressionError ?
+                e.code :
+                ZSTD_FFI_JS_ERROR.DECODING_ERROR;
+            const partial = concatChunks(parts);
+
+            throw new ZstdDecompressionErrorWithData(
+                `Decompression failed: ${message}`,
+                {
+                    cause: e,
+                    code: code,
+                    data: partial,
+                }
+            );
         }
 
-        // Concatenate all parts.
-        const totalSize = parts.reduce((sum, p) => sum + p.byteLength, 0);
-        const result = new Uint8Array(totalSize);
-        let offset = 0;
-        for (const p of parts) {
-            result.set(p, offset);
-            offset += p.byteLength;
-        }
-
-        return result;
+        // No error → concatenate all parts
+        return concatChunks(parts);
     }
 }
 
