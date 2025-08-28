@@ -67,7 +67,9 @@ tasks:
       CHECKSUM_FILE: "{{.G_EMSDK_CHECKSUM}}"
       EMSDK_VERSION: "4.0.10"
       OUTPUT_DIR: "{{.G_EMSDK_DIR}}"
-    sources: ["{{.ROOT_DIR}}/Taskfile.yml"]
+    sources:
+      - "{{.ROOT_DIR}}/Taskfile.yml"
+      - "{{.TASKFILE}}"
     generates: ["{{.CHECKSUM_FILE}}"]
     run: "once"
     deps:
