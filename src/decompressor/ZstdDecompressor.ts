@@ -120,7 +120,7 @@ class ZstdDecompressor {
      * Streaming decompression of ZSTD data.
      *
      * @param dataArrayIter An iterable of compressed data chunks.
-     * @throws {Error} If the decompressor is not initialized or heap is not available.
+     * @throws {Error} If failed to allocate memory, or decompression fails.
      * @yields Decompressed data chunks as Uint8Array.
      */
     *decompressStreaming (dataArrayIter: Iterable<Uint8Array>): Generator<Uint8Array> {
@@ -143,8 +143,27 @@ class ZstdDecompressor {
         }
 
         try {
-            for (const dataArray of dataArrayIter) {
-                yield* this.#processStreamingChunk(dCtxPtr, dataArray, inBufferView, outBufferView);
+            let readSizeHint = 0;
+            for (const inDataArray of dataArrayIter) {
+                let inDataPos = 0;
+                while (inDataPos < inDataArray.byteLength) {
+                    const toCopy = Math.min(
+                        inDataArray.byteLength - inDataPos,
+                        this.#DEC_STREAM_IN_SIZE
+                    );
+                    const inDataSliceEnd = inDataPos + toCopy;
+                    const inDataSlice = inDataArray.subarray(inDataPos, inDataSliceEnd);
+                    inDataPos = inDataSliceEnd;
+                    readSizeHint = yield* this.#processStreamingChunk(
+                        dCtxPtr,
+                        inDataSlice,
+                        inBufferView,
+                        outBufferView
+                    );
+                }
+            }
+            if (0 !== readSizeHint) {
+                throw new Error("Premature end: more data is expected");
             }
         } finally {
             outBufferView.destroy();
@@ -160,6 +179,7 @@ class ZstdDecompressor {
      * @param inDataArray The compressed data chunk.
      * @param inBufferView
      * @param outBufferView
+     * @return Recommended read size of the next input chunk. When non-zero, more data is expected.
      * @throws {Error} If processing fails.
      * @yields Decompressed data chunks as Uint8Array.
      */
@@ -168,36 +188,30 @@ class ZstdDecompressor {
         inDataArray: Uint8Array,
         inBufferView: ZstdInBufferView,
         outBufferView: ZstdOutBufferView
-    ): Generator<Uint8Array> {
-        let inDataPos = 0;
-        while (inDataPos < inDataArray.byteLength) {
-            const toCopy = Math.min(inDataArray.byteLength - inDataPos, this.#DEC_STREAM_IN_SIZE);
-            const inDataSliceEnd = inDataPos + toCopy;
-            const inDataSlice = inDataArray.subarray(inDataPos, inDataSliceEnd);
-            inDataPos = inDataSliceEnd;
+    ): Generator<Uint8Array, number> {
+        let ret = 0;
 
-            inBufferView.readFrom(inDataSlice);
-            let hasError = false;
-            while (false === hasError && inBufferView.pos < inBufferView.size) {
-                outBufferView.reset();
-                const ret = this.#module._ZSTD_decompressStream(
-                    dCtxPtr,
-                    outBufferView.ptr,
-                    inBufferView.ptr
-                );
+        inBufferView.readFrom(inDataArray);
+        while (inBufferView.pos < inBufferView.size) {
+            outBufferView.reset();
+            ret = this.#module._ZSTD_decompressStream(
+                dCtxPtr,
+                outBufferView.ptr,
+                inBufferView.ptr
+            );
 
-                if (this.#module._ZSTD_isError(ret)) {
-                    const errorNamePtr = this.#module._ZSTD_getErrorName(ret);
-                    console.error(`ZSTD streaming decompression error: ${ret} - ${
-                        this.#module.UTF8ToString(errorNamePtr)}`);
-                    hasError = true;
-                }
+            if (0 < outBufferView.pos) {
+                yield outBufferView.dump();
+            }
 
-                if (0 < outBufferView.pos) {
-                    yield outBufferView.dump();
-                }
+            if (this.#module._ZSTD_isError(ret)) {
+                const errorNamePtr = this.#module._ZSTD_getErrorName(ret);
+                throw new Error(`ZSTD streaming decompression error: ${ret} - ${
+                    this.#module.UTF8ToString(errorNamePtr)}`);
             }
         }
+
+        return ret;
     }
 
     /**
