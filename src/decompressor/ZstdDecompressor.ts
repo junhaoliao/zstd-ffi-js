@@ -131,23 +131,7 @@ class ZstdDecompressor {
      * @yields Decompressed data chunks as Uint8Array.
      */
     *decompressStream (dataArrayIter: Iterable<Uint8Array>): Generator<Uint8Array> {
-        const dCtxPtr = this.#module._ZSTD_createDCtx();
-        if (nullptr === dCtxPtr) {
-            throw new Error("Failed to create ZSTD decompression context");
-        }
-
-        const inBufferView = ZstdInBufferView.create(this.#module, this.#DEC_STREAM_IN_SIZE);
-        if (null === inBufferView) {
-            this.#module._ZSTD_freeDCtx(dCtxPtr);
-            throw new Error("Failed to create input buffer");
-        }
-
-        const outBufferView = ZstdOutBufferView.create(this.#module, this.#DEC_STREAM_OUT_SIZE);
-        if (null === outBufferView) {
-            inBufferView.destroy();
-            this.#module._ZSTD_freeDCtx(dCtxPtr);
-            throw new Error("Failed to create output buffer");
-        }
+        const {dCtxPtr, inBufferView, outBufferView} = this.#initializeDecompressionContext();
 
         try {
             let numReadSizeHint = 0;
@@ -180,6 +164,37 @@ class ZstdDecompressor {
             inBufferView.destroy();
             this.#module._ZSTD_freeDCtx(dCtxPtr);
         }
+    }
+
+    /**
+     * Initializes the decompression context by creating the necessary resources for decompression.
+     *
+     * @return An object containing:
+     * - dCtxPtr: The pointer to the decompression context.
+     * - inBufferView: The input buffer view, wrapping a memory-backed buffer.
+     * - outBufferView: The output buffer view, wrapping a memory-backed buffer.
+     * @throws {Error} If failed to allocate memory.
+     */
+    #initializeDecompressionContext () {
+        const dCtxPtr = this.#module._ZSTD_createDCtx();
+        if (nullptr === dCtxPtr) {
+            throw new Error("Failed to create ZSTD decompression context");
+        }
+
+        const inBufferView = ZstdInBufferView.create(this.#module, this.#DEC_STREAM_IN_SIZE);
+        if (null === inBufferView) {
+            this.#module._ZSTD_freeDCtx(dCtxPtr);
+            throw new Error("Failed to create input buffer");
+        }
+
+        const outBufferView = ZstdOutBufferView.create(this.#module, this.#DEC_STREAM_OUT_SIZE);
+        if (null === outBufferView) {
+            inBufferView.destroy();
+            this.#module._ZSTD_freeDCtx(dCtxPtr);
+            throw new Error("Failed to create output buffer");
+        }
+
+        return {dCtxPtr, inBufferView, outBufferView};
     }
 
     /**
