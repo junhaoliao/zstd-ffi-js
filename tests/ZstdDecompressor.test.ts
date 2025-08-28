@@ -78,7 +78,7 @@ const downloadAndExtract = async (url: string, extractPath: string): Promise<boo
 };
 
 beforeAll(async () => {
-    if (!fs.existsSync(TEST_DATA_DIR)) {
+    if (false === fs.existsSync(TEST_DATA_DIR)) {
         fs.mkdirSync(TEST_DATA_DIR, {recursive: true});
     }
 
