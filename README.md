@@ -147,6 +147,21 @@ Compression functionality will be added in a future release with APIs such as:
 
 The library automatically loads the appropriate WebAssembly module for each environment at runtime.
 
+## Release Process
+
+To create a new release:
+
+1. Update the version in `package.json`
+2. Create a new GitHub release with a tag that matches the version in `package.json` (e.g., `v1.2.3`)
+3. The GitHub Actions workflow will automatically publish the new version to npm
+
+You can also manually publish a release by running:
+```bash
+npm run release
+```
+
+Note: This command will only work if there are no uncommitted changes in the repository.
+
 ## License
 
 Apache-2.0

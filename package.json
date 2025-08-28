@@ -14,7 +14,8 @@
     }
   },
   "files": [
-    "dist/**"
+    "dist/**",
+    "tsconfig.json"
   ],
   "scripts": {
     "build": "task package",
@@ -23,18 +24,26 @@
     "build:all": "task zstd-ffi-js && tsc",
     "clean": "task clean",
     "lint": "eslint .",
-    "lint:fix": "npm run lint -- --fix"
+    "lint:fix": "npm run lint -- --fix",
+    "release": "git diff --exit-code && task package && npm publish"
+  },
+  "author": "YScope Inc. <dev@yscope.com>",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/y-scope/zstd-ffi-js#readme",
+  "bugs": {
+    "url": "https://github.com/y-scope/zstd-ffi-js/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/y-scope/zstd-ffi-js.git"
   },
   "keywords": [
     "zstd",
     "zstandard",
-    "compression",
-    "decompression",
     "wasm",
-    "webassembly"
+    "webassembly",
+    "decompression"
   ],
-  "author": "YScope Inc. <dev@yscope.com>",
-  "license": "Apache-2.0",
   "devDependencies": {
     "@types/node": "^24.3.0",
     "eslint-config-yscope": "1.1.1",
