@@ -72,36 +72,13 @@ tasks:
           INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
 
   zstd-wasm:
-    vars:
-      CHECKSUM_FILE: "{{.G_ZSTD_WASM_CHECKSUM}}"
-      OUTPUT_DIR: "{{.G_ZSTD_WASM_BUILD_DIR}}"
-    sources:
-      - "{{.G_ZSTD_WASM_BUILD_DIR}}/CMakeCache.txt"
-      - "{{.TASKFILE}}"
-      - "CMakeLists.txt"
-      - "src/**/*"
-    generates: ["{{.CHECKSUM_FILE}}"]
-    deps:
-      - "config-cmake-project"
-      - task: "utils:checksum:validate"
-        vars:
-          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
-          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
     cmds:
-      - >-
-        cmake
-        --build '{{.OUTPUT_DIR}}'
-        --parallel
-        --target {{range .G_ZSTD_WASM_ENV_NAMES}}"{{$.G_ZSTD_WASM_TARGET_PREFIX}}{{.}}" {{end}}
-      # This command must be last
-      - task: "utils:checksum:compute"
-        vars:
-          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
-          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
+      - task: "zstd-wasm-generate"
+      - task: "zstd-wasm-build"
 
-  config-cmake-project:
+  zstd-wasm-generate:
     internal: true
-    sources:
+    sources: &zstd_wasm_source_files
       - "{{.G_DEPS_CHECKSUM}}"
       - "{{.TASKFILE}}"
       - "CMakeLists.txt"
@@ -109,13 +86,41 @@ tasks:
       - "{{.G_ZSTD_WASM_BUILD_DIR}}/CMakeCache.txt"
     deps:
       - "deps"
-    cmd: |-
-      cmake \
-      -DZSTD_WASM_SUPPORTED_ENVIRONMENTS="{{.G_ZSTD_WASM_ENV_NAMES | join ";"}}" \
-      -DCMAKE_TOOLCHAIN_FILE="{{.G_EMSDK_DIR}}/upstream/emscripten/cmake/Modules/Platform/\
-      Emscripten.cmake" \
-      -S "{{.ROOT_DIR}}" \
-      -B "{{.G_ZSTD_WASM_BUILD_DIR}}"
+    cmds:
+      - task: "utils:cmake:generate"
+        vars:
+          BUILD_DIR: "{{.G_ZSTD_WASM_BUILD_DIR}}"
+          SOURCE_DIR: "{{.ROOT_DIR}}"
+          EXTRA_ARGS:
+            - '-DZSTD_WASM_SUPPORTED_ENVIRONMENTS="{{.G_ZSTD_WASM_ENV_NAMES | join ";"}}"'
+            - >-
+              -DCMAKE_TOOLCHAIN_FILE=
+              "{{.G_EMSDK_DIR}}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+
+  zstd-wasm-build:
+    internal: true
+    vars:
+      CHECKSUM_FILE: "{{.G_ZSTD_WASM_CHECKSUM}}"
+      OUTPUT_DIR: "{{.G_ZSTD_WASM_BUILD_DIR}}"
+    sources: *zstd_wasm_source_files
+    generates: ["{{.CHECKSUM_FILE}}"]
+    deps:
+      - task: "utils:checksum:validate"
+        vars:
+          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
+          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
+    cmds:
+      - task: "utils:cmake:build"
+        vars:
+          BUILD_DIR: "{{.OUTPUT_DIR}}"
+          # Use `--clean-first` to ensure all outputs are rebuilt, since Emscripten's toolchain
+          # file does not correctly track all generated output files.
+          EXTRA_ARGS: ["--clean-first"]
+      # This command must be last
+      - task: "utils:checksum:compute"
+        vars:
+          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
+          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
 
   init:
     internal: true
