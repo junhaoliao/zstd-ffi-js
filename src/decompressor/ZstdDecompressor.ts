@@ -178,7 +178,7 @@ class ZstdDecompressor {
 
             inBufferView.readFrom(inDataSlice);
             let hasError = false;
-            while (false === hasError && inBufferView.pos <= inBufferView.size) {
+            while (false === hasError && inBufferView.pos < inBufferView.size) {
                 outBufferView.reset();
                 const ret = this.#module._ZSTD_decompressStream(
                     dCtxPtr,

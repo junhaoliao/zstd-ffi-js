@@ -27,6 +27,16 @@ tasks:
   default:
     deps: ["package"]
 
+  test:
+    desc: "Run unit tests"
+    cmds:
+      - "npm run test:run"
+
+  test-coverage:
+    desc: "Run unit tests with coverage"
+    cmds:
+      - "npm run test:coverage"
+
   clean:
     cmds:
       - task: "clean-zstd-wasm"

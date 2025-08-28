@@ -25,6 +25,7 @@
     "clean": "task clean",
     "lint": "eslint .",
     "lint:fix": "npm run lint -- --fix",
+    "test": "vitest run --coverage",
     "release": "git diff --exit-code && task package && npm publish"
   },
   "author": "YScope Inc. <dev@yscope.com>",
@@ -46,8 +47,11 @@
   ],
   "devDependencies": {
     "@types/node": "^24.3.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint-config-yscope": "1.1.1",
+    "tar": "^7.4.3",
     "typescript": "~5.7.3",
-    "typescript-eslint": "^8.19.0"
+    "typescript-eslint": "^8.19.0",
+    "vitest": "^3.2.4"
   }
 }

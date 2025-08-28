@@ -116,6 +116,7 @@ class ZstdInBufferView {
     readFrom (data: Uint8Array) {
         this.#heap.set(data, this.#bufferPtr);
         this.#heapView.setUint32(this.#ptr + ZstdInBufferView.#POS_OFFSET, 0, true);
+        this.#heapView.setUint32(this.#ptr + ZstdInBufferView.#SIZE_OFFSET, data.byteLength, true);
     }
 
     /**
