@@ -1,9 +1,9 @@
-import fs from "node:fs";
+import * as fs from "node:fs";
 import {constants as HTTP_CONSTANTS} from "node:http2";
-import https from "node:https";
-import os from "node:os";
-import path from "node:path";
-import zlib from "node:zlib";
+import * as https from "node:https";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as zlib from "node:zlib";
 
 import * as tar from "tar";
 import {
@@ -18,7 +18,7 @@ import {
     ZstdDecompressionErrorWithData,
 } from "../src/decompressor/error/index.js";
 import {ZstdDecompressor} from "../src/decompressor/index.js";
-import {concatChunks} from "../src/utils";
+import {concatChunks} from "../src/utils.js";
 
 
 const SIMPLE_STRING = "Hello, world!";
@@ -104,9 +104,11 @@ const testDecompression = async (originalData: Uint8Array) => {
         decompressor.decompress(incompleteCompressedData);
     } catch (e: unknown) {
         expect(e).toBeInstanceOf(ZstdDecompressionErrorWithData);
-        expect(e).toHaveProperty("code", ZSTD_FFI_JS_ERROR.READ_ERROR);
-        expect(e).toHaveProperty("data", expect.any(Uint8Array));
-        expect((e as ZstdDecompressionErrorWithData).toString()).toMatch(/Premature end/);
+        if (e instanceof ZstdDecompressionErrorWithData) {
+            expect(e.code).toBe(ZSTD_FFI_JS_ERROR.READ_ERROR);
+            expect(e.data).toBeInstanceOf(Uint8Array);
+            expect(e.toString()).toMatch(/Premature end/);
+        }
     }
 };
 

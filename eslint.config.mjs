@@ -14,7 +14,14 @@ const EslintConfig = [
     CommonConfig,
     ...TsConfigArray,
     createTsConfigOverride(
-        ["tests/**"],
+        ["src/**"],
+        "tsconfig.app.json"
+    ),
+    createTsConfigOverride(
+        [
+            "tests/**",
+            "vitest.config.ts",
+        ],
         "tsconfig.test.json"
     ),
     ...StylisticConfigArray,
