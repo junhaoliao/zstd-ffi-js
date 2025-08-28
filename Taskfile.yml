@@ -60,7 +60,7 @@ tasks:
           var: "G_ZSTD_WASM_ENV_NAMES"
         cmd: >-
           rsync -a
-          {{.G_ZSTD_WASM_BUILD_DIR}}/{{.G_ZSTD_WASM_TARGET_PREFIX}}{{.ITEM}}.{d.ts,js,wasm}
+          "{{.G_ZSTD_WASM_BUILD_DIR}}/{{.G_ZSTD_WASM_TARGET_PREFIX}}{{.ITEM}}".{d.ts,js,wasm}
           "{{.OUTPUT_DIR}}/"
       - "npm run build:ts"
       - "npm pack"
