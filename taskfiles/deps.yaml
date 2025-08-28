@@ -126,7 +126,7 @@ tasks:
         python3 combine.py \
         -r ../../lib -x legacy/zstd_legacy.h \
         -o {{.ZSTD_SINGLE_FILE_OUTPUT_FILE}} \
-        zstddeclib-in.c
+        zstd-in.c
       - >-
         echo "set(
         ZSTD_WASM_ZSTD_SINGLE_FILE_SOURCE_DIRECTORY \"{{.ZSTD_SINGLE_FILE_OUTPUT_DIR}}\"
