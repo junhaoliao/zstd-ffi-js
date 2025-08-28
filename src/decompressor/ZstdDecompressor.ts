@@ -130,7 +130,7 @@ class ZstdDecompressor {
      * @throws {ZstdDecompressionError} if reading input fails.
      * @yields Decompressed data chunks as Uint8Array.
      */
-    *decompressStreaming (dataArrayIter: Iterable<Uint8Array>): Generator<Uint8Array> {
+    *decompressStream (dataArrayIter: Iterable<Uint8Array>): Generator<Uint8Array> {
         const dCtxPtr = this.#module._ZSTD_createDCtx();
         if (nullptr === dCtxPtr) {
             throw new Error("Failed to create ZSTD decompression context");
@@ -235,7 +235,7 @@ class ZstdDecompressor {
     #decompressStreamingFallback (dataArray: Uint8Array): Uint8Array {
         const parts: Uint8Array[] = [];
         try {
-            for (const chunk of this.decompressStreaming([dataArray])) {
+            for (const chunk of this.decompressStream([dataArray])) {
                 parts.push(chunk);
             }
         } catch (e: unknown) {

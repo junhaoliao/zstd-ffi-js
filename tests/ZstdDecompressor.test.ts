@@ -120,11 +120,11 @@ const testStreamingDecompression = async (originalData: Uint8Array) => {
     const decompressor = await ZstdDecompressor.create();
 
     // streaming decompression
-    let iter = decompressor.decompressStreaming(createIterable(compressedData));
+    let iter = decompressor.decompressStream(createIterable(compressedData));
     expect(concatChunksFromIter(iter)).toStrictEqual(originalData);
 
     const incompleteCompressedData = compressedData.subarray(0, compressedData.length - 1);
-    iter = decompressor.decompressStreaming(createIterable(incompleteCompressedData));
+    iter = decompressor.decompressStream(createIterable(incompleteCompressedData));
     expect(() => concatChunksFromIter(iter)).toThrow(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         expect.objectContaining({code: ZSTD_FFI_JS_ERROR.READ_ERROR})
@@ -144,7 +144,7 @@ describe("decompress", () => {
     }
 });
 
-describe("decompressStreaming", () => {
+describe("decompressStream", () => {
     it("should handle a simple string", async () => {
         await testStreamingDecompression(new TextEncoder().encode(SIMPLE_STRING));
     });
