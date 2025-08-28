@@ -6,8 +6,8 @@
       "ES2022",
       "ES2022.Error"
     ],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
     "rootDir": "./src",
     "esModuleInterop": true,
     "skipLibCheck": true,

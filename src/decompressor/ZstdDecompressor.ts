@@ -1,10 +1,14 @@
 import type {MainModule} from "../../dist/zstd-wasm-node.js";
-import {concatChunks} from "../utils";
+import {concatChunks} from "../utils.js";
+import {
+    destroyDecompressionContext,
+    initializeDecompressionContext,
+} from "./context.js";
 import {
     ZSTD_FFI_JS_ERROR,
     ZstdDecompressionError,
-} from "./error";
-import ZstdDecompressionErrorWithData from "./error/ZstdDecompressionErrorWithData";
+    ZstdDecompressionErrorWithData,
+} from "./error/index.js";
 import {nullptr} from "./typings.js";
 import ZstdInBufferView from "./ZstdInBufferView.js";
 import ZstdOutBufferView from "./ZstdOutBufferView.js";
@@ -20,16 +24,8 @@ class ZstdDecompressor {
 
     readonly #heap: Uint8Array;
 
-    readonly #DEC_STREAM_IN_SIZE: number;
-
-    readonly #DEC_STREAM_OUT_SIZE: number;
-
-
     private constructor (module: MainModule) {
         this.#module = module;
-
-        this.#DEC_STREAM_IN_SIZE = module._ZSTD_DStreamInSize();
-        this.#DEC_STREAM_OUT_SIZE = module._ZSTD_DStreamOutSize();
 
         // Emscripten does not define HEAPU8.buffer as ArrayBuffer in the generated types.
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -123,35 +119,25 @@ class ZstdDecompressor {
     }
 
     /**
-     * Streaming decompression of ZSTD data.
+     * Decompresses a compressed ZSTD buffer asynchronously.
      *
-     * @param dataArrayIter An iterable of compressed data chunks.
+     * @param dataArrayIter An async iterable of compressed data chunks.
      * @throws {Error} If failed to allocate memory.
      * @throws {ZstdDecompressionError} if reading input fails.
      * @yields Decompressed data chunks as Uint8Array.
      */
-    *decompressStream (dataArrayIter: Iterable<Uint8Array>): Generator<Uint8Array> {
-        const {dCtxPtr, inBufferView, outBufferView} = this.#initializeDecompressionContext();
+    async *decompressStream (dataArrayIter: AsyncIterable<Uint8Array>): AsyncGenerator<Uint8Array> {
+        const {dCtxPtr, inBufferView, outBufferView} = initializeDecompressionContext(this.#module);
 
         try {
             let numReadSizeHint = 0;
-            for (const inDataArray of dataArrayIter) {
-                let inDataPos = 0;
-                while (inDataPos < inDataArray.byteLength) {
-                    const toCopy = Math.min(
-                        inDataArray.byteLength - inDataPos,
-                        this.#DEC_STREAM_IN_SIZE
-                    );
-                    const inDataSliceEnd = inDataPos + toCopy;
-                    const inDataSlice = inDataArray.subarray(inDataPos, inDataSliceEnd);
-                    inDataPos = inDataSliceEnd;
-                    numReadSizeHint = yield* this.#processStreamingChunk(
-                        dCtxPtr,
-                        inDataSlice,
-                        inBufferView,
-                        outBufferView
-                    );
-                }
+            for await (const inDataArray of dataArrayIter) {
+                numReadSizeHint = yield* this.#processStreamingChunk(
+                    dCtxPtr,
+                    inDataArray,
+                    inBufferView,
+                    outBufferView
+                );
             }
             if (0 !== numReadSizeHint) {
                 throw new ZstdDecompressionError(
@@ -160,41 +146,40 @@ class ZstdDecompressor {
                 );
             }
         } finally {
-            outBufferView.destroy();
-            inBufferView.destroy();
-            this.#module._ZSTD_freeDCtx(dCtxPtr);
+            destroyDecompressionContext(this.#module, {dCtxPtr, inBufferView, outBufferView});
         }
     }
 
     /**
-     * Initializes the decompression context by creating the necessary resources for decompression.
+     * Decompresses a compressed ZSTD buffer synchronously.
      *
-     * @return An object containing:
-     * - dCtxPtr: The pointer to the decompression context.
-     * - inBufferView: The input buffer view, wrapping a memory-backed buffer.
-     * - outBufferView: The output buffer view, wrapping a memory-backed buffer.
+     * @param dataArrayIter An iterable of compressed data chunks.
      * @throws {Error} If failed to allocate memory.
+     * @throws {ZstdDecompressionError} if reading input fails.
+     * @yields Decompressed data chunks as Uint8Array.
      */
-    #initializeDecompressionContext () {
-        const dCtxPtr = this.#module._ZSTD_createDCtx();
-        if (nullptr === dCtxPtr) {
-            throw new Error("Failed to create ZSTD decompression context");
-        }
+    *decompressStreamSync (dataArrayIter: Iterable<Uint8Array>): Generator<Uint8Array> {
+        const {dCtxPtr, inBufferView, outBufferView} = initializeDecompressionContext(this.#module);
 
-        const inBufferView = ZstdInBufferView.create(this.#module, this.#DEC_STREAM_IN_SIZE);
-        if (null === inBufferView) {
-            this.#module._ZSTD_freeDCtx(dCtxPtr);
-            throw new Error("Failed to create input buffer");
+        try {
+            let numReadSizeHint = 0;
+            for (const inDataArray of dataArrayIter) {
+                numReadSizeHint = yield* this.#processStreamingChunk(
+                    dCtxPtr,
+                    inDataArray,
+                    inBufferView,
+                    outBufferView
+                );
+            }
+            if (0 !== numReadSizeHint) {
+                throw new ZstdDecompressionError(
+                    "Premature end",
+                    {code: ZSTD_FFI_JS_ERROR.READ_ERROR}
+                );
+            }
+        } finally {
+            destroyDecompressionContext(this.#module, {dCtxPtr, inBufferView, outBufferView});
         }
-
-        const outBufferView = ZstdOutBufferView.create(this.#module, this.#DEC_STREAM_OUT_SIZE);
-        if (null === outBufferView) {
-            inBufferView.destroy();
-            this.#module._ZSTD_freeDCtx(dCtxPtr);
-            throw new Error("Failed to create output buffer");
-        }
-
-        return {dCtxPtr, inBufferView, outBufferView};
     }
 
     /**
@@ -216,24 +201,34 @@ class ZstdDecompressor {
     ): Generator<Uint8Array, number> {
         let ret = 0;
 
-        inBufferView.readFrom(inDataArray);
-        while (inBufferView.pos < inBufferView.size) {
-            outBufferView.reset();
-            ret = this.#module._ZSTD_decompressStream(
-                dCtxPtr,
-                outBufferView.ptr,
-                inBufferView.ptr
+        let inDataPos = 0;
+        while (inDataPos < inDataArray.byteLength) {
+            const toCopy = Math.min(
+                inDataArray.byteLength - inDataPos,
+                inBufferView.size
             );
+            const inDataSliceEnd = inDataPos + toCopy;
+            const inDataSlice = inDataArray.subarray(inDataPos, inDataSliceEnd);
+            inDataPos = inDataSliceEnd;
+            inBufferView.readFrom(inDataSlice);
+            while (inBufferView.pos < inBufferView.size) {
+                outBufferView.reset();
+                ret = this.#module._ZSTD_decompressStream(
+                    dCtxPtr,
+                    outBufferView.ptr,
+                    inBufferView.ptr
+                );
 
-            if (0 < outBufferView.pos) {
-                yield outBufferView.dump();
-            }
+                if (0 < outBufferView.pos) {
+                    yield outBufferView.dump();
+                }
 
-            if (this.#module._ZSTD_isError(ret)) {
-                const errorNamePtr = this.#module._ZSTD_getErrorName(ret);
-                throw new ZstdDecompressionError(this.#module.UTF8ToString(errorNamePtr), {
-                    code: ZSTD_FFI_JS_ERROR.DECODING_ERROR,
-                });
+                if (this.#module._ZSTD_isError(ret)) {
+                    const errorNamePtr = this.#module._ZSTD_getErrorName(ret);
+                    throw new ZstdDecompressionError(this.#module.UTF8ToString(errorNamePtr), {
+                        code: ZSTD_FFI_JS_ERROR.DECODING_ERROR,
+                    });
+                }
             }
         }
 
@@ -250,7 +245,7 @@ class ZstdDecompressor {
     #decompressStreamingFallback (dataArray: Uint8Array): Uint8Array {
         const parts: Uint8Array[] = [];
         try {
-            for (const chunk of this.decompressStream([dataArray])) {
+            for (const chunk of this.decompressStreamSync([dataArray])) {
                 parts.push(chunk);
             }
         } catch (e: unknown) {
@@ -272,7 +267,6 @@ class ZstdDecompressor {
             );
         }
 
-        // No error → concatenate all parts
         return concatChunks(parts);
     }
 }

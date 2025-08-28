@@ -1,5 +1,5 @@
-import {ZstdDecompressionError} from "./index";
-import {ZstdDecompressionErrorArgs} from "./ZstdDecompressionError";
+import {ZstdDecompressionError} from "./index.js";
+import {ZstdDecompressionErrorArgs} from "./ZstdDecompressionError.js";
 
 
 interface ZstdDecompressionErrorWithDataArgs extends ZstdDecompressionErrorArgs {

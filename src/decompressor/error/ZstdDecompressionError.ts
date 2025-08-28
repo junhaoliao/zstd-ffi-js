@@ -1,4 +1,4 @@
-import {ZSTD_FFI_JS_ERROR} from "./constants";
+import {ZSTD_FFI_JS_ERROR} from "./constants.js";
 
 
 interface ZstdDecompressionErrorArgs extends ErrorOptions {
