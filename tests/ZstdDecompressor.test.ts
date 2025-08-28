@@ -7,7 +7,6 @@ import * as zlib from "node:zlib";
 
 import * as tar from "tar";
 import {
-    beforeAll,
     describe,
     expect,
     it,
@@ -23,6 +22,11 @@ import {concatChunks} from "../src/utils.js";
 
 const SIMPLE_STRING = "Hello, world!";
 const TEST_DATA_DIR = path.join(os.tmpdir(), "zstd-ffi-js-test-data");
+
+/**
+ * List of test files that populated after the download.
+ */
+let testFiles: string[];
 
 /**
  * Create an iterable from a Uint8Array.
@@ -77,7 +81,7 @@ const downloadAndExtract = async (url: string, extractPath: string): Promise<boo
     });
 };
 
-beforeAll(async () => {
+await (async () => {
     if (fs.existsSync(TEST_DATA_DIR)) {
         fs.rmSync(TEST_DATA_DIR, {recursive: true});
     }
@@ -85,7 +89,8 @@ beforeAll(async () => {
 
     console.log(`Downloading test data to ${TEST_DATA_DIR}...`);
     await downloadAndExtract("https://corpus.canterbury.ac.nz/resources/cantrbry.tar.gz", TEST_DATA_DIR);
-});
+    testFiles = fs.readdirSync(TEST_DATA_DIR);
+})();
 
 /**
  * Test decompression helper.
@@ -138,7 +143,7 @@ describe("decompress", () => {
         await testDecompression(new TextEncoder().encode(SIMPLE_STRING));
     });
 
-    for (const file of fs.readdirSync(TEST_DATA_DIR)) {
+    for (const file of testFiles) {
         it(`should handle file: ${file}`, async () => {
             const data = new Uint8Array(fs.readFileSync(path.join(TEST_DATA_DIR, file)));
             await testDecompression(data);
@@ -151,7 +156,7 @@ describe("decompressStream", () => {
         await testStreamingDecompression(new TextEncoder().encode(SIMPLE_STRING));
     });
 
-    for (const file of fs.readdirSync(TEST_DATA_DIR)) {
+    for (const file of testFiles) {
         it(`should handle file: ${file}`, async () => {
             const data = new Uint8Array(fs.readFileSync(path.join(TEST_DATA_DIR, file)));
             await testStreamingDecompression(data);
