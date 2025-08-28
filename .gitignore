@@ -1,0 +1,14 @@
+# Build
+.task
+build
+dist
+
+# Dependencies
+node_modules
+
+# IDEs
+.idea
+.vscode
+
+# Test
+coverage

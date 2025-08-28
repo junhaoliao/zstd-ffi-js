@@ -1,0 +1,50 @@
+{
+  "name": "@yscope/zstd-ffi-js",
+  "version": "0.0.1",
+  "description": "A TypeScript/JavaScript Zstandard library with decompression support and future compression support",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./decompressor": {
+      "import": "./dist/decompressor/index.js",
+      "types": "./dist/decompressor/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/**",
+    "tsconfig.json"
+  ],
+  "scripts": {
+    "build": "task package",
+    "build:ts": "tsc",
+    "clean": "task clean",
+    "lint": "eslint .",
+    "lint:fix": "npm run lint -- --fix",
+    "release": "git diff --exit-code && task package && npm publish"
+  },
+  "author": "YScope Inc. <dev@yscope.com>",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/y-scope/zstd-ffi-js#readme",
+  "bugs": {
+    "url": "https://github.com/y-scope/zstd-ffi-js/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/y-scope/zstd-ffi-js.git"
+  },
+  "keywords": [
+    "zstd",
+    "zstandard",
+    "wasm",
+    "webassembly",
+    "decompression"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "eslint-config-yscope": "1.1.1",
+    "typescript": "~5.7.3"
+  }
+}

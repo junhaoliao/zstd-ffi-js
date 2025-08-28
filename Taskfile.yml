@@ -1,0 +1,65 @@
+version: "3"
+
+includes:
+  node: "taskfiles/node.yaml"
+  utils: "tools/yscope-dev-utils/exports/taskfiles/utils/utils.yaml"
+
+vars:
+  G_BUILD_DIR: "{{.ROOT_DIR}}/build"
+  G_DIST_DIR: "{{.ROOT_DIR}}/dist"
+  G_ZSTD_WASM_BUILD_DIR: "{{.G_BUILD_DIR}}/zstd-wasm"
+
+  G_ZSTD_WASM_ENV_NAMES: ["node", "worker"]
+  G_ZSTD_WASM_TARGET_PREFIX: "zstd-wasm-"
+
+  G_NODE_MODULES_CHECKSUM: "{{.G_BUILD_DIR}}/node_modules.md5"
+
+tasks:
+  default:
+    deps: ["package"]
+
+  clean:
+    cmds:
+      - task: "node:clean-node-modules"
+
+  package:
+    vars:
+      CHECKSUM_FILE: "{{.G_BUILD_DIR}}/{{.TASK}}.md5"
+      OUTPUT_DIR: "{{.G_DIST_DIR}}"
+    sources:
+      - "{{.TASKFILE}}"
+      - "src/**/*"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "tsconfig.app.json"
+    generates: ["{{.CHECKSUM_FILE}}"]
+    deps:
+      - "node:node-modules"
+      - task: "utils:checksum:validate"
+        vars:
+          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
+          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
+    cmds:
+      - "rm -rf {{.OUTPUT_DIR}}"
+      - "mkdir -p {{.OUTPUT_DIR}}"
+      - for:
+          var: "G_ZSTD_WASM_ENV_NAMES"
+        cmd: >-
+          rsync -a
+          "{{.G_ZSTD_WASM_BUILD_DIR}}/{{.G_ZSTD_WASM_TARGET_PREFIX}}{{.ITEM}}".{d.ts,js,wasm}
+          "{{.OUTPUT_DIR}}/"
+      - "npm run build:ts"
+      # Print the package contents
+      - "npm pack --dry-run"
+      # This command must be last
+      - task: "utils:checksum:compute"
+        vars:
+          CHECKSUM_FILE: "{{.CHECKSUM_FILE}}"
+          INCLUDE_PATTERNS: ["{{.OUTPUT_DIR}}"]
+
+  init:
+    internal: true
+    silent: true
+    run: "once"
+    cmds: ["mkdir -p '{{.G_BUILD_DIR}}'"]
