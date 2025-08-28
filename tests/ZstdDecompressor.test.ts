@@ -78,9 +78,10 @@ const downloadAndExtract = async (url: string, extractPath: string): Promise<boo
 };
 
 beforeAll(async () => {
-    if (false === fs.existsSync(TEST_DATA_DIR)) {
-        fs.mkdirSync(TEST_DATA_DIR, {recursive: true});
+    if (fs.existsSync(TEST_DATA_DIR)) {
+        fs.rmSync(TEST_DATA_DIR, {recursive: true});
     }
+    fs.mkdirSync(TEST_DATA_DIR, {recursive: true});
 
     console.log(`Downloading test data to ${TEST_DATA_DIR}...`);
     await downloadAndExtract("https://corpus.canterbury.ac.nz/resources/cantrbry.tar.gz", TEST_DATA_DIR);
