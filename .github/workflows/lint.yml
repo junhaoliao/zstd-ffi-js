@@ -30,6 +30,7 @@ jobs:
         with:
           node-version: 22
       - run: "npm clean-install"
+      - run: "task package"
       - name: "Run ESLint"
         run: |-
           # Disable ANSI color codes in ESLint output
